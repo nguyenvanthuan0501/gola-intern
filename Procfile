@@ -1,0 +1,1 @@
+web: gunicorn gola_intern.wsgi

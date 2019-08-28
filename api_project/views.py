@@ -52,9 +52,10 @@ class AccountDeleteAPIView(APIView):
         queryset.delete()
         return Response(status=HTTP_200_OK)
 
-@authentication_classes([])
-@permission_classes([])
 class AuthenticatedUser(APIView):
+    authentication_classes = ([])
+    permission_classes = (IsAuthenticated, )
+    
     def post(self, request, ):
         serializer_class = serializers.AuthenticateAccountSerializer(data=request.data)
         if serializer_class.is_valid():
@@ -118,7 +119,7 @@ class AuthenticationMe(APIView):
         try:
             profile = Profile.objects.get(username=account).dictionary()
         except:
-            profile = 'null'
+            profile = None
 
         account_information = {
             'id': str(account.uuid),

@@ -54,7 +54,7 @@ class AccountDeleteAPIView(APIView):
 
 class AuthenticatedUser(APIView):
     authentication_classes = ([])
-    permission_classes = (IsAuthenticated, )
+    permission_classes = ([])
     
     def post(self, request, ):
         serializer_class = serializers.AuthenticateAccountSerializer(data=request.data)

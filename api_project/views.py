@@ -8,12 +8,22 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.http import HttpResponse
-from rest_framework.decorators import authentication_classes, permission_classes
-from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_401_UNAUTHORIZED, HTTP_201_CREATED, HTTP_200_OK, HTTP_404_NOT_FOUND, HTTP_202_ACCEPTED
+from rest_framework.decorators import(
+    authentication_classes,
+    permission_classes
+)
+from rest_framework.status import(
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_201_CREATED,
+    HTTP_200_OK,
+    HTTP_404_NOT_FOUND,
+    HTTP_202_ACCEPTED
+)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework.permissions import AllowAny,IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth.hashers import make_password
 from oauth2_provider.models import AccessToken as AccesssTokenOATH
 from oauthlib import common
@@ -21,12 +31,16 @@ from . import serializers
 from datetime import timedelta, datetime, timezone
 from .tokens import account_activation_token
 from .models import Account, Profile, AccessToken, Blacklist
+from .decorators import no_token_in_blacklist
 # Create your views here.
+
+
 class AccountCreateAPIView(APIView):
     permission_classes = (AllowAny,)
 
     def post(self, request):
-        serializer_class = serializers.AccountCreateSerializer(data=request.data)
+        serializer_class = serializers.AccountCreateSerializer(
+            data=request.data)
         if serializer_class.is_valid():
             username = serializer_class.data.get('username')
             email = serializer_class.data.get('email')
@@ -38,7 +52,9 @@ class AccountCreateAPIView(APIView):
             account.save()
             return Response({"message": "Success"}, status=HTTP_201_CREATED)
         else:
-            return Response(serializer_class.errors, status=HTTP_400_BAD_REQUEST)
+            return Response(serializer_class.errors,
+                            status=HTTP_400_BAD_REQUEST)
+
 
 class AccountDeleteAPIView(APIView):
     permission_classes = (IsAuthenticated, )
@@ -52,12 +68,14 @@ class AccountDeleteAPIView(APIView):
         queryset.delete()
         return Response(status=HTTP_200_OK)
 
+
 class AuthenticatedUser(APIView):
     authentication_classes = ([])
     permission_classes = ([])
-    
+
     def post(self, request, ):
-        serializer_class = serializers.AuthenticateAccountSerializer(data=request.data)
+        serializer_class = serializers.AuthenticateAccountSerializer(
+            data=request.data)
         if serializer_class.is_valid():
             username = serializer_class.data.get('username')
             password = serializer_class.data.get('password')
@@ -69,7 +87,8 @@ class AuthenticatedUser(APIView):
                     'username': account.username,
                     'time': str(datetime.now(timezone.utc)),
                 }
-                access_token = jwt.encode(payload, settings.SECRET_KEY).decode('utf-8')
+                access_token = jwt.encode(
+                    payload, settings.SECRET_KEY).decode('utf-8')
                 try:
                     to_black_list = AccessToken.objects.get(user=account)
                     token_black_list = BlackList()
@@ -93,8 +112,10 @@ class AuthenticatedUser(APIView):
 
                 refresh_token.save()
                 payload2 = {'token': str(refresh_token)}
-                refresh_token_str = jwt.encode(payload2, settings.SECRET_KEY).decode('utf-8')
-                decode_token = jwt.decode(refresh_token_str, settings.SECRET_KEY)
+                refresh_token_str = jwt.encode(
+                    payload2, settings.SECRET_KEY).decode('utf-8')
+                decode_token = jwt.decode(
+                    refresh_token_str, settings.SECRET_KEY)
                 tokens = {
                     'access_token': access_token,
                     'refresh_token': refresh_token_str,
@@ -102,14 +123,17 @@ class AuthenticatedUser(APIView):
 
                 return Response(tokens, status=HTTP_201_CREATED)
             else:
-                return Response({"message": "Authentication failed"}, status=HTTP_400_BAD_REQUEST)
- 
+                return Response({"message": "Authentication failed"},
+                                status=HTTP_400_BAD_REQUEST)
+
+
 class AuthenticationVerify(APIView):
     serializer_class = serializers.AuthenticateAccountSerializer
     permission_classes = (IsAuthenticated, )
-    
+
     def get(self, request, format=None):
         return Response({'verify': True})
+
 
 class AuthenticationMe(APIView):
     permission_classes = (IsAuthenticated, )
@@ -117,7 +141,7 @@ class AuthenticationMe(APIView):
     def get(self, request, format=None):
         account = Account.objects.get(username=request.user.username)
         try:
-            profile = Profile.objects.get(username=account).dictionary()
+            profile = Profile.objects.get(username=account).show_profile()
         except:
             profile = None
 
@@ -130,16 +154,19 @@ class AuthenticationMe(APIView):
         }
         return Response(account_information, content_type='application/json')
 
+
 class RefreshTokenAPIView(APIView):
     permission_classes = (IsAuthenticated, )
 
     def post(self, request):
-        serializer_class = serializers.RefreshTokenSerializer(data=request.data)
+        serializer_class = serializers.RefreshTokenSerializer(
+            data=request.data)
         if serializer_class.is_valid():
             token = serializer_class.data.get('refresh_token')
             decoded_token = jwt.decode(token, settings.SECRET_KEY)
             try:
-                valid_token = AccesssTokenOATH.objects.get(token=decoded_token['token'])
+                valid_token = AccesssTokenOATH.objects.get(
+                    token=decoded_token['token'])
                 if datetime.now(timezone.utc) < valid_token.expires:
                     username = valid_token.user.username
                     account = Account.objects.get(username=username)
@@ -148,38 +175,50 @@ class RefreshTokenAPIView(APIView):
                         'username': account.username,
                         'time': str(datetime.now(timezone.utc))
                     }
-                    access_token = jwt.encode(payload, settings.SECRET_KEY).decode('utf-8')
-                    return Response({"access_token": access_token}, status=HTTP_200_OK)
+                    access_token = jwt.encode(
+                        payload, settings.SECRET_KEY).decode('utf-8')
+                    return Response({"access_token": access_token},
+                                    status=HTTP_200_OK)
                 else:
                     return Response(status=HTTP_400_BAD_REQUEST)
             except:
-                return Response({"message": "Refresh token not found"}, status=HTTP_404_NOT_FOUND)
+                return Response({"message": "Refresh token not found"},
+                                status=HTTP_404_NOT_FOUND)
         else:
-            return Response({"message": "Access token and refresh token do not match"}, status=HTTP_400_BAD_REQUEST)        
+            return Response(
+                {"message": "Access token and refresh token do not match"},
+                status=HTTP_400_BAD_REQUEST)
+
 
 class RevokeAPIView(APIView):
     permission_classes = (IsAuthenticated, )
 
+    @no_token_in_blacklist
     def post(self, request):
         serializers_class = serializers.RevokeSerializer(data=request.data)
         if serializers_class.is_valid():
             refresh_token = serializers_class.data.get('refresh_token')
             try:
-                decoded_token = jwt.decode(refresh_token, settings.SECRET_KEY)['token']
-                print(decoded_token)
+                decoded_token = jwt.decode(
+                    refresh_token, settings.SECRET_KEY)['token']
             except:
                 return Response(status=HTTP_400_BAD_REQUEST)
             try:
-                to_delete_token = AccesssTokenOATH.objects.get(token=str(decoded_token))
+                to_delete_token = AccesssTokenOATH.objects.get(
+                    token=str(decoded_token))
                 if to_delete_token.user.username != str(request.user.username):
-                    return Response({"message": "Access token and refresh token do not match"}, status=HTTP_400_BAD_REQUEST)
-                print(to_delete_token)
+                    return Response({
+                        "error": "Access token and refresh token do not match"
+                    }, status=HTTP_400_BAD_REQUEST)
                 to_delete_token.delete()
             except:
-                return Response({"message": "Refresh token was not found"}, status=HTTP_404_NOT_FOUND)
+                return Response(
+                    {"message": "Refresh token was not found"},
+                    status=HTTP_404_NOT_FOUND)
         else:
             return Response(status=HTTP_400_BAD_REQUEST)
         return Response(status=HTTP_200_OK)
+
 
 class ChangeEmailAPIView(APIView):
     permission_classes = (IsAuthenticated, )
@@ -190,10 +229,27 @@ class ChangeEmailAPIView(APIView):
             email = serializer_class.data.get('email')
             account = Account.objects.get(username=request.user.username)
             account.email = email
+
+            to_email = account.email
+            current_site = get_current_site(request)
+            message = render_to_string('email_confirmed.html', {
+                'user': account,
+                'domain': current_site.domain,
+                'uid': urlsafe_base64_encode(force_bytes(account.uuid)),
+                'token': account_activation_token.make_token(account),
+            })
+            mail_confirmed = 'Active your account'
+            to_email = to_email
+            email_message = EmailMessage(
+                mail_confirmed, message, to=[to_email])
+            email_message.send()
+            account.email_confirmed = False
             account.save()
             return Response({"message": "Success"}, status=status.HTTP_200_OK)
         else:
-            return Response({"message": "Invalid email"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Invalid email"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
 
 class SendConfirmedEmailAPIView(APIView):
     permission_classes = (IsAuthenticated, )
@@ -205,7 +261,7 @@ class SendConfirmedEmailAPIView(APIView):
         message = render_to_string('email_confirmed.html', {
             'user': account,
             'domain': current_site.domain,
-            'uid':urlsafe_base64_encode(force_bytes(account.uuid)),
+            'uid': urlsafe_base64_encode(force_bytes(account.uuid)),
             'token': account_activation_token.make_token(account),
         })
         mail_confirmed = 'Active your account'
@@ -214,28 +270,35 @@ class SendConfirmedEmailAPIView(APIView):
         email_message.send()
         return Response({"message": "Success"}, status=HTTP_202_ACCEPTED)
 
+
 def ConfirmEmailAPIView(request, uidb64, token):
     try:
         uid = force_text(urlsafe_base64_decode(uidb64))
         account = Account.objects.get(uuid=uid)
     except (TypeError, ValueError, OverflowError, Account.DoesNotExist):
         account = None
-    if account is not None and account_activation_token.check_token(account, token):
+    if account is not None and account_activation_token.check_token(
+            account, token):
         account.is_active = True
         account.save()
         return HttpResponse(status=HTTP_200_OK)
     else:
-        return HttpResponse({"message": "Token has been expired"}, status=HTTP_400_BAD_REQUEST)
+        return HttpResponse({"message": "Token has been expired"},
+                            status=HTTP_400_BAD_REQUEST)
+
 
 class ChangePasswordAPIView(APIView):
     permission_classes = (IsAuthenticated, )
 
+    @no_token_in_blacklist
     def patch(self, request):
-        serializer_class = serializers.ChangePasswordSerializer(data=request.data)
+        serializer_class = serializers.ChangePasswordSerializer(
+            data=request.data)
         if serializer_class.is_valid():
             current_password = serializer_class.data.get('current_password')
             password = serializer_class.data.get('password')
-            confirmed_password = serializer_class.data.get('confirmed_password')
+            confirmed_password = serializer_class.data.get(
+                'confirmed_password')
             account = Account.objects.get(username=request.user.username)
             if not account.check_password(raw_password=current_password):
                 message = {"errors": {"current_password": "Incorect password"}}
@@ -253,7 +316,9 @@ class ChangePasswordAPIView(APIView):
                     pass
             return Response({"message": "Success"}, status=HTTP_200_OK)
         else:
-            return Response(serializer_class.errors, status=HTTP_400_BAD_REQUEST)
+            return Response(serializer_class.errors,
+                            status=HTTP_400_BAD_REQUEST)
+
 
 class ProfileAPIView(APIView):
     permission_classes = (IsAuthenticated, )
@@ -266,23 +331,19 @@ class ProfileAPIView(APIView):
             country = serializer_class.data.get('country')
             phone = serializer_class.data.get('phone')
             date_of_birth = serializer_class.data.get('date_of_birth')
-        
             account = Account.objects.get(username=request.user.username)
             profiles = Profile.objects.all()
-
-            if account in [profile.username for profile in profiles]:
+            if Profile.objects.filter(username=account.uuid).exists():
                 prof = profiles.get(username=account)
                 if fullname != '':
                     prof.fullname = fullname
                 if address != '':
                     prof.address = address
                 if country != '':
-                    prof.country = country
+                    prof.counry = country
                 if phone != '':
                     prof.phone = phone
-                print(date_of_birth)
                 if date_of_birth != '':
-                    
                     prof.date_of_birth = date_of_birth
                 prof.save()
                 return Response(status=HTTP_200_OK)
@@ -297,4 +358,5 @@ class ProfileAPIView(APIView):
                 prof.save()
                 return Response(status=HTTP_200_OK)
         else:
-            return Response(serializer_class.errors,status=HTTP_400_BAD_REQUEST)
+            return Response(serializer_class.errors,
+                            status=HTTP_400_BAD_REQUEST)

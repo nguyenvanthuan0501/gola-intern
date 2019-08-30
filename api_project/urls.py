@@ -14,7 +14,7 @@ from .views import (
     ConfirmEmailAPIView,
     ChangePasswordAPIView,
     ProfileAPIView
-) 
+)
 
 urlpatterns = [
     path('auth/', AuthenticatedUser.as_view()),
@@ -26,9 +26,8 @@ urlpatterns = [
     path('account/', AccountDeleteAPIView.as_view()),
     path('account/email/', ChangeEmailAPIView.as_view()),
     path('account/send-confirmed-email/', SendConfirmedEmailAPIView.as_view()),
-    url(
-        r'^account/confirm-email/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$',
-        ConfirmEmailAPIView, name='email_confirmed'),
+    path('account/confirm-email/<slug:uidb64>/<slug:token>/',
+         ConfirmEmailAPIView, name='email_confirmed'),
     path('account/password', ChangePasswordAPIView.as_view()),
     path('profile/', ProfileAPIView.as_view()),
 ]
